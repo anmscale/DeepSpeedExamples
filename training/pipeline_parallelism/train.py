@@ -8,8 +8,8 @@ import torch.distributed as dist
 
 import torchvision
 import torchvision.transforms as transforms
-from torchvision.models import AlexNet
-from torchvision.models import vgg19
+# from torchvision.models import AlexNet
+from models import MLP
 
 import deepspeed
 from deepspeed.pipe import PipelineModule
@@ -70,7 +70,8 @@ def train_base(args):
 
     # VGG also works :-)
     #net = vgg19(num_classes=10)
-    net = AlexNet(num_classes=10)
+    # net = AlexNet(num_classes=10)
+    net = MLP(num_classes=10)
 
     trainset = cifar_trainset(args.local_rank)
 
@@ -107,12 +108,19 @@ def train_base(args):
 
 
 
-def join_layers(vision_model):
+def join_layers_convnet(vision_model):
     layers = [
         *vision_model.features,
         vision_model.avgpool,
         lambda x: torch.flatten(x, 1),
         *vision_model.classifier,
+    ]
+    return layers
+
+def join_layers_mlp(vision_model):
+    layers = [
+        *vision_model.module_1,
+        *vision_model.module_2,
     ]
     return layers
 
@@ -127,8 +135,9 @@ def train_pipe(args, part='parameters'):
 
     # VGG also works :-)
     #net = vgg19(num_classes=10)
-    net = AlexNet(num_classes=10)
-    net = PipelineModule(layers=join_layers(net),
+    # net = AlexNet(num_classes=10)
+    net = MLP(num_classes=10)
+    net = PipelineModule(layers=join_layers_mlp(net),
                          loss_fn=torch.nn.CrossEntropyLoss(),
                          num_stages=args.pipeline_parallel_size,
                          partition_method=part,
