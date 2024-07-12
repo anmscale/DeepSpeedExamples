@@ -1,8 +1,7 @@
- {
-  "train_batch_size" : 16,
-  "train_micro_batch_size_per_gpu" : 8,
-
-   "optimizer": {
+{
+  "train_micro_batch_size_per_gpu": 32,
+  "gradient_accumulation_steps": 1,
+  "optimizer": {
     "type": "Adam",
     "params": {
       "lr": 0.001,
@@ -13,7 +12,12 @@
       "eps": 1e-8
     }
   },
-  
-  "steps_per_print" : 10,
-  "wall_clock_breakdown" : true
- }
+  "steps_per_print": 10,
+  "wall_clock_breakdown": true,
+  "memory_breakdown": false,
+  "csv_monitor": {
+    "enabled": true,
+    "output_path": "logs",
+    "job_name": "mlp_4_stage"
+  }
+}

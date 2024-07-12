@@ -1,3 +1,3 @@
 #!/bin/bash
 
-deepspeed train.py --num_nodes 1 --num_gpus 2 --deepspeed_config=ds_config.json -p 2 --steps=200
+deepspeed --num_nodes=1 --num_gpus=4 train.py --deepspeed_config=ds_config.json --pipeline-parallel-size 4 --steps=300

@@ -15,11 +15,16 @@ import deepspeed
 from deepspeed.pipe import PipelineModule
 from deepspeed.utils import RepeatingLoader
 
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 
 def cifar_trainset(local_rank, dl_path='/tmp/cifar10-data'):
     transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
@@ -66,11 +71,8 @@ def get_args():
 
 
 def train_base(args):
-    torch.manual_seed(args.seed)
+    set_seed(args.seed)
 
-    # VGG also works :-)
-    #net = vgg19(num_classes=10)
-    # net = AlexNet(num_classes=10)
     net = MLP(num_classes=10)
 
     trainset = cifar_trainset(args.local_rank)
@@ -117,26 +119,19 @@ def join_layers_convnet(vision_model):
     ]
     return layers
 
-def join_layers_mlp(vision_model):
-    layers = [
-        *vision_model.module_1,
-        *vision_model.module_2,
-    ]
-    return layers
+def join_layers_mlp(mlp_model):
+    return mlp_model.layers
 
 
 def train_pipe(args, part='parameters'):
-    torch.manual_seed(args.seed)
+    set_seed(args.seed)
     deepspeed.runtime.utils.set_random_seed(args.seed)
 
     #
     # Build the model
     #
-
-    # VGG also works :-)
-    #net = vgg19(num_classes=10)
-    # net = AlexNet(num_classes=10)
-    net = MLP(num_classes=10)
+    
+    net = MLP(stages=args.pipeline_parallel_size)
     net = PipelineModule(layers=join_layers_mlp(net),
                          loss_fn=torch.nn.CrossEntropyLoss(),
                          num_stages=args.pipeline_parallel_size,
@@ -161,6 +156,7 @@ if __name__ == '__main__':
     deepspeed.init_distributed(dist_backend=args.backend)
     args.local_rank = int(os.environ['LOCAL_RANK'])
     torch.cuda.set_device(args.local_rank)
+
 
     if args.pipeline_parallel_size == 0:
         train_base(args)
