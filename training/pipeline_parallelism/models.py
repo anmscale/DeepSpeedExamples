@@ -11,7 +11,7 @@ class MLP(nn.Module):
         self.num_layers = num_layers
 
         # Create a list to hold all the modules
-        self.layers = [nn.Flatten()]
+        self.layers = []
         for _ in range(self.num_layers):
             self.layers.append(nn.Linear(3072, 3072))
             self.layers.append(nn.ReLU(inplace=True))

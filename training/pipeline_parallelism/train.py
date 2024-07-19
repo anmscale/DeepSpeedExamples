@@ -27,6 +27,7 @@ def cifar_trainset(local_rank, dl_path='/tmp/cifar10-data'):
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        transforms.Lambda(lambda x: x.view(-1))  # Flatten the tensor
     ])
 
     # Ensure only one rank downloads.
