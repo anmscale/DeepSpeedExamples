@@ -20,6 +20,10 @@ import time
 import deepspeed
 from deepspeed.pipe import PipelineModule
 from deepspeed.utils import RepeatingLoader
+from torch.profiler import profile, record_function, ProfilerActivity
+
+
+
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -163,7 +167,7 @@ def train_pipe(args, part='parameters'):
     #
     # Build the model
     #
-    net = MLP(stages=args.pipeline_parallel_size)
+    net = MLP(feature_size=3072, num_blocks=args.pipeline_parallel_size)
 
     net = PipelineModule(layers=join_layers_mlp(net),
                          loss_fn=torch.nn.CrossEntropyLoss(),
@@ -182,6 +186,7 @@ def train_pipe(args, part='parameters'):
     
     # engine.save_checkpoint(save_dir=args.save_dir, client_state={'checkpoint_step': 0})
     set_seed(123)
+
     start_time = time.perf_counter()
     for step in range(args.steps):
         loss = engine.train_batch()
@@ -199,7 +204,7 @@ def load_pipe(args, part='parameters'):
     # Build the model
     #
     
-    net = MLP(stages=args.pipeline_parallel_size)
+    net = MLP(feature_size=3072, num_blocks=args.pipeline_parallel_size)
 
     net = PipelineModule(layers=join_layers_mlp(net),
                          loss_fn=torch.nn.CrossEntropyLoss(),
