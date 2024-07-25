@@ -1,46 +1,45 @@
 
 import torch
 import torch.nn as nn
+import os
 
 class MLP(nn.Module):
-    def __init__(self, stages, num_layers=8, num_classes=10):
+    def __init__(self, feature_size, num_blocks=4, num_classes=10):
         super(MLP, self).__init__()
-        assert num_layers % stages == 0, "The number of stages must be a divisor of the number of layers."
 
-        self.stages = stages
-        self.num_layers = num_layers
-
+        self.num_blocks = num_blocks
+        
         # Create a list to hold all the modules
         self.layers = []
-        for _ in range(self.num_layers):
-            self.layers.append(nn.Linear(3072, 3072))
+        for block_idx in range(self.num_blocks):
+            torch.manual_seed(block_idx)
+            self.layers.append(nn.Linear(feature_size, feature_size))
             self.layers.append(nn.ReLU(inplace=True))
-            self.layers.append(nn.Dropout())
+            # self.layers.append(nn.Dropout())
+            self.layers.append(nn.Linear(feature_size, feature_size))
+            self.layers.append(nn.ReLU(inplace=True))
+            # self.layers.append(nn.Dropout())
 
         # Add the final output layer
-        self.layers.append(nn.Linear(3072, num_classes))
+        self.layers.append(nn.Linear(feature_size, num_classes))
 
-        # Crate model and split into stages
         self.model = nn.Sequential(*self.layers)
-        self.stage_layers = self._split_into_stages()
 
-    def _split_into_stages(self):
-        layers_per_stage = (self.num_layers // self.stages) * 3
-        stage_layers = []
+    def load_state_dicts(self, checkpoint_dir):
+        """
+        Load state dicts for every layer from files in the given directory.
 
-        # First stage (Flatten + first layers)
-        stage_layers.append(nn.Sequential(*self.layers[:1 + layers_per_stage]))
-
-        # Intermediate stages
-        for i in range(1, self.stages - 1):
-            start = 1 + (i - 1) * layers_per_stage
-            end = 1 + i * layers_per_stage
-            stage_layers.append(nn.Sequential(*self.layers[start:end]))
-
-        # Last stage (last layers + final output layer)
-        stage_layers.append(nn.Sequential(*self.layers[-layers_per_stage-1:]))
-
-        return stage_layers
+        Args:
+            checkpoint_dir (str): Directory containing the state_dict files.
+        """
+        for i in range(self.num_blocks * 4 + 1):
+            state_dict_path = os.path.join(checkpoint_dir, f'layer_{i:02d}-model_states.pt')
+            if os.path.exists(state_dict_path):
+                state_dict = torch.load(state_dict_path)
+                self.model[i].load_state_dict(state_dict)
+            else:
+                print(f"State dict file {state_dict_path} not found.")
+        print("Model state dictionaries loaded successfully!")
 
     def forward(self, x):
         for stage in self.stage_layers:
